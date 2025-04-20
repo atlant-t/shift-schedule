@@ -1,0 +1,14 @@
+# Node and npm
+node_modules
+npm-debug.log
+
+# IDEs and editors
+/.idea
+.project
+.vscode
+*.sublime-workspace
+
+# System files
+.DS_Store
+Thumbs.db
+
