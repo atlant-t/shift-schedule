@@ -230,28 +230,34 @@ function getNode<T>(node: LineMapNode<T>, point: number): LineMapNode<T> | null 
 /**
  * Returns a list of existing nodes in the specified range.
  *
- * @param rootNode The root node of the subtree.
+ * @param node The root node of the subtree.
  * @param start Start of the range.
  * @param end End of the range.
  * @returns Array of found nodes.
  */
-function getNodes<T>(rootNode: LineMapNode<T> | null, start: number, end: number): Array<LineMapNode<T>> {
+function getNodes<T>(node: LineMapNode<T> | null, start: number, end: number): Array<LineMapNode<T>> {
   const result = new Array();
 
-  if (rootNode == null) {
+  if (node == null) {
     return result;
   }
 
-  if (start < rootNode.start) {
-    getNodes(rootNode.lNode, start, end).forEach((n) => result.push(n));
+  if (start < node.start) {
+    getNodes(node.lNode, start, end).forEach((n) => result.push(n));
   }
 
-  if (start <= rootNode.start && end >= rootNode.end) {
-    result.push(rootNode);
+  if (Math.max(start, node.start) < Math.min(end, node.end)
+    // The end is not included in the range, but it is possible that the user
+    // is searching for a specific point (with the end equal to the start) that
+    // falls on the edge of the range, and the check above cannot handle this
+    // case correctly, so this case must be handled separately.
+    // TODO: Find a better solution.
+    || start === end && start >= node.start && start < node.end) {
+    result.push(node);
   }
 
-  if (end > rootNode.end) {
-    getNodes(rootNode.rNode, start, end).forEach((n) => result.push(n));
+  if (end > node.end) {
+    getNodes(node.rNode, start, end).forEach((n) => result.push(n));
   }
 
   return result;
@@ -354,8 +360,18 @@ function insert<T>(node: LineMapNode<T> | null, token: T, start: number, end: nu
         minRNode = minRNode.lNode;
       }
       minRNode.lNode = newNode;
+      updateHeight(minRNode);
       while (stack.isEmpty() == false) {
-        updateHeight(stack.pop()!);
+        const parentNode = stack.pop()!;
+        if (!!parentNode.lNode) {
+          updateHeight(parentNode.lNode);
+          parentNode.lNode = balance(parentNode.lNode);
+        }
+        if (!!parentNode.rNode) {
+          updateHeight(parentNode.rNode);
+          parentNode.rNode = balance(parentNode.rNode);
+        }
+        updateHeight(parentNode);
       }
     }
 
@@ -380,8 +396,18 @@ function insert<T>(node: LineMapNode<T> | null, token: T, start: number, end: nu
         maxLNode = maxLNode.rNode;
       }
       maxLNode.rNode = newNode;
+      updateHeight(maxLNode);
       while (stack.isEmpty() == false) {
-        updateHeight(stack.pop()!);
+        const parentNode = stack.pop()!;
+        if (!!parentNode.lNode) {
+          updateHeight(parentNode.lNode);
+          parentNode.lNode = balance(parentNode.lNode);
+        }
+        if (!!parentNode.rNode) {
+          updateHeight(parentNode.rNode);
+          parentNode.rNode = balance(parentNode.rNode);
+        }
+        updateHeight(parentNode);
       }
     }
 
@@ -553,9 +579,12 @@ function balance<T>(node: LineMapNode<T>): LineMapNode<T> {
     }
     return rotateRight(node);
   }
+  // This case should not happen, but just in case it is worth at least
+  // handling it somehow.
   if (Math.abs(balanceFactor) > 2) {
     node.lNode = !!node.lNode ? balance(node.lNode) : node.lNode;
     node.rNode = !!node.rNode ? balance(node.rNode) : node.rNode;
+    updateHeight(node);
     return balance(node);
   }
   return node;
