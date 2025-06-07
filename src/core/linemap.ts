@@ -115,7 +115,7 @@ export class LineMap<T> {
     return false;
   }
 
-  public *[Symbol.iterator]() {
+  public [Symbol.iterator]() {
     return getTreeGenerator(this._rootNode);
   }
 }
